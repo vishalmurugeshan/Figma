@@ -8,6 +8,43 @@ public class FigmaResponse
 {
     public FigmaDocument document;
 }
+public static class FigmaJsonConverter
+{
+    public static FigmaResponse FromJson(string json)
+    {
+        if (string.IsNullOrEmpty(json))
+        {
+            Debug.LogError("Figma JSON string is null or empty");
+            return null;
+        }
+
+        try
+        {
+            return JsonUtility.FromJson<FigmaResponse>(json);
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogError("Failed to parse Figma JSON\n" + e);
+            return null;
+        }
+    }
+}
+
+[System.Serializable]
+public class ImageNodeData
+{
+    public UiData uiData;
+    public UnityEngine.UI.Image image;
+
+    public void SetImage(Sprite sprite)
+    {
+        if (image != null)
+        {
+            image.sprite = sprite;
+            image.color = Color.white;
+        }
+    }
+}
 
 #endregion
 

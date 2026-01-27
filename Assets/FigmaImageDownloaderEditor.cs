@@ -32,7 +32,6 @@ public class FigmaImageDownloaderEditor : EditorWindow
 
         GUI.enabled = true;
     }
-
     void StartDownload()
     {
         request = UnityWebRequestTexture.GetTexture(imageUrl);
