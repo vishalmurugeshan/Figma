@@ -3,7 +3,17 @@ using UnityEngine;
 using UnityEngine.UI;
 using System.Collections.Generic;
 using UnityEditor;
+using TMPro;
 
+public static class NodesVariables
+{
+    public const string panel = "PANEL"; 
+    public const string image = "IMG";
+    public const string imageWithBtn = "IMG_BTN";
+    public const string txt = "TXT";
+
+    public const string txtType = "TEXT";
+}
 public class FigmaUICreator : MonoBehaviour
 {
     [Header("Figma File API response json string")]
@@ -19,12 +29,13 @@ public class FigmaUICreator : MonoBehaviour
 
     [SerializeField] FigmaResponse Response;
 
-    
+    [SerializeField]TMP_FontAsset fontAsset;
     #region Figma UI Creation
 
 
     public void CreateCanvasSkeleton()
     {
+        ResetAll();
         CheckDepedency();
         canvas = new GameObject("Canvas", typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster)).GetComponent<Canvas>();
         Create();
@@ -94,71 +105,118 @@ public class FigmaUICreator : MonoBehaviour
         RectTransform canvasRT = canvas.GetComponent<RectTransform>();
 
         foreach (var node in doc.children)
+        {
             TraverseNode(node, canvasRT, null);
+        }
     }
+
 
     void TraverseNode(FigmaNode node, RectTransform parentRT, FigmaNode parentNode)
     {
         if (node == null || node.absoluteBoundingBox == null)
             return;
 
-        RectTransform rt = parentRT;
+        RectTransform currentParent = parentRT;
 
-        // Only create UI for these nodes
-        if (node.name == "PANEL" || node.name == "IMG" || isFirst)
+        Debug.Log(" Creationg node " + node.name + " " + node.type);
+
+        if ( IsValidNode(node) || isFirst)
         {
             isFirst = false;
-            GameObject go = null;
-            if (node.name == "PANEL")
+            GameObject go = (node.type.Equals(NodesVariables.txtType))?CreateUIObject(NodesVariables.txt):CreateUIObject(node.name);
+            if (go != null)
             {
-                go = new GameObject(node.name, typeof(RectTransform));
-            }
-            else
-            {
-                go = new GameObject(node.name, typeof(RectTransform), typeof(Image));
-            }
-            go.transform.SetParent(parentRT, false);
+                go.transform.SetParent(parentRT, false);
 
-            rt = go.GetComponent<RectTransform>();
+                RectTransform rt = go.GetComponent<RectTransform>();
+                SetupRectTransform(rt, node, parentNode);
 
-            // Anchor & pivot (Top-Left like Figma)
-            rt.anchorMin = new Vector2(0, 1);
-            rt.anchorMax = new Vector2(0, 1);
-            rt.pivot = new Vector2(0, 1);
-
-            // Size
-            rt.sizeDelta = new Vector2(
-                node.absoluteBoundingBox.width,
-                node.absoluteBoundingBox.height
-            );
-
-            // ✅ Correct local position
-            rt.anchoredPosition = GetLocalPosition(node, parentNode);
-
-            // Image setup
-
-            if (node.name == "IMG")
-            {
-                Image img = go.GetComponent<Image>();
-                img.AddComponent<UiData>().nodeData = node;
-
-                //if (node.name == "PANEL") img.color = Color.red;
-                if (node.name == "IMG") img.color = Color.green;
-
-                img.color = new Color(img.color.r, img.color.g, img.color.b, 0.5f);
-
-                ImageNodeData ind = new ImageNodeData();
-                ind.uiData = img.GetComponent<UiData>();
-                ind.image = img;
-                canvasDataRuntimeAsset.imageNodes.Add(ind);
+                if (node.type.Equals(NodesVariables.txtType))
+                {
+                    Debug.Log("Created text");
+                    SetupText(node.name.ToUpper(),go,node.style.fontSize);
+                }
+                else
+                {
+                    if (node.name == NodesVariables.image || node.name == NodesVariables.imageWithBtn)
+                        SetupImage(go, node);
+                }
+                currentParent = rt;
             }
         }
 
-        // Traverse children
         if (node.children == null) return;
 
         foreach (var child in node.children)
-            TraverseNode(child, rt, node);
+            TraverseNode(child, currentParent, node);
+    }
+    
+    bool IsValidNode(FigmaNode node)
+    {
+        return (node.type.Equals(NodesVariables.txtType) || node.name.Equals(NodesVariables.panel)
+            || node.name.Equals(NodesVariables.image) || node.name.Equals(NodesVariables.imageWithBtn));
+    }
+    GameObject CreateUIObject(string nodeName)
+    {
+        switch (nodeName)
+        {
+            case NodesVariables.panel:
+                return new GameObject(nodeName, typeof(RectTransform));
+
+            case NodesVariables.image:
+                return new GameObject(nodeName, typeof(RectTransform), typeof(Image));
+
+            case NodesVariables.imageWithBtn:
+                return new GameObject(nodeName, typeof(RectTransform), typeof(Image), typeof(Button));
+            case NodesVariables.txt:
+                return new GameObject(nodeName, typeof(RectTransform), typeof(TextMeshProUGUI));
+            default:
+                return new GameObject(nodeName, typeof(RectTransform));
+        }
+    }
+
+    void SetupRectTransform(RectTransform rt, FigmaNode node, FigmaNode parentNode)
+    {
+        rt.anchorMin = new Vector2(0, 1);
+        rt.anchorMax = new Vector2(0, 1);
+        rt.pivot = new Vector2(0, 1);
+
+        rt.sizeDelta = new Vector2(
+            node.absoluteBoundingBox.width,
+            node.absoluteBoundingBox.height
+        );
+
+        rt.anchoredPosition = GetLocalPosition(node, parentNode);
+    }
+    void SetupText(string text,GameObject go,float fontSize=18)
+    {
+        TMP_Text txt=go.GetComponent<TMP_Text>();
+        
+        if (txt != null)
+        {
+            txt.text = text;
+            if (fontAsset != null)
+            {
+                txt.font = fontAsset;
+            }
+            txt.fontSize = fontSize;
+            txt.rectTransform.sizeDelta=new Vector2(txt.text.Length*fontSize, fontSize);
+        }
+    }
+    void SetupImage(GameObject go, FigmaNode node)
+    {
+        Image img = go.GetComponent<Image>();
+        img.AddComponent<UiData>().nodeData = node;
+
+        img.color = new Color(0, 1, 0, 0.5f); // semi-transparent green
+
+        ImageNodeData ind = new ImageNodeData
+        {
+            uiData = img.GetComponent<UiData>(),
+            image = img
+        };
+
+        canvasDataRuntimeAsset.imageNodes.Add(ind);
     }
 
     /// <summary>

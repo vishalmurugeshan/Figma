@@ -77,6 +77,7 @@ public class FigmaNode
     public Constraints constraints;
     public FigmaFill[] fills;
     public ExportSetting[] exportSettings;
+    public Style style;
 
     public FigmaNode[] children;
 }
@@ -116,6 +117,13 @@ public class FigmaColor
     public float g;
     public float b;
     public float a;
+}
+
+[Serializable]
+public class Style
+{
+    public string fontFamily;
+    public int fontSize;
 }
 
 #endregion
